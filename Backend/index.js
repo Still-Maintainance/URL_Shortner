@@ -1,6 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
+const { nanoid } = require("nanoid");
 const port = 3000;
 
 const app = express();
@@ -44,7 +45,8 @@ app.get("/all", async (req, res) => {
   }
 });
 
-app.get('/:id', async (req, res) => {
+//redirecting based on the short url
+app.get("/:id", async (req, res) => {
   const id = req.params.id;
 
   try {
@@ -64,10 +66,32 @@ app.get('/:id', async (req, res) => {
   }
 });
 
-app.post('/url' , (req,res)=>{
-  
-})
+//making a short url out of a long one or "the actual url shortner"
+app.post("/url:originalUrl", async (req, res) => {
+  const originalUrl = req.body.originalUrl;
 
+  if (!originalUrl) {
+    return res.status(400).json({ error: "originalUrl is required" });
+  }
+
+  try {
+    const short = nanoid(8); 
+
+    const newUrl = new URL({
+      shortUrl: short,
+      originalUrl: originalUrl,
+      noOfClicks: 0,
+      createdAt: new Date(),
+    });
+
+    await newUrl.save(); 
+
+    return res.status(201).json({ shortUrl: short });
+  } catch (error) {
+    console.error("server error biatchhh", error);
+    return res.status(500).send("Server error");
+  }
+});
 
 app.listen(port, (err) => {
   if (err) {
