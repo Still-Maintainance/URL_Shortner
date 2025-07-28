@@ -44,6 +44,31 @@ app.get("/all", async (req, res) => {
   }
 });
 
+app.get('/:id', async (req, res) => {
+  const id = req.params.id;
+
+  try {
+    const result = await URL.findOne({ shortUrl: id });
+
+    if (!result) {
+      return res.status(404).send(`No URL found for shortUrl: ${id}`);
+    }
+
+    result.noOfClicks++;
+    await result.save();
+
+    return res.redirect(result.originalUrl);
+  } catch (err) {
+    console.error("Error fetching short URL:", err);
+    return res.status(500).send("Server error");
+  }
+});
+
+app.post('/url' , (req,res)=>{
+  
+})
+
+
 app.listen(port, (err) => {
   if (err) {
     console.log("Server has an ERROR 😱");
