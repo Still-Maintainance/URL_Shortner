@@ -41,6 +41,7 @@ app.get("/all", async (req, res) => {
     const urlResult = await URL.find({});
     return res.json(urlResult);
   } catch (error) {
+    console.error("Error fetching all URLs:", error); // Added more specific logging
     res.status(500).json({ error: "Something went wrong" });
   }
 });
@@ -59,15 +60,21 @@ app.get("/:id", async (req, res) => {
     result.noOfClicks++;
     await result.save();
 
+    // Ensure the originalUrl has a protocol for successful redirection
+    if (!result.originalUrl.startsWith('http://') && !result.originalUrl.startsWith('https://')) {
+        return res.redirect(`http://${result.originalUrl}`); // Prepend http:// if missing
+    }
+
     return res.redirect(result.originalUrl);
   } catch (err) {
-    console.error("Error fetching short URL:", err);
+    console.error("Error fetching or redirecting short URL:", err); // More specific logging
     return res.status(500).send("Server error");
   }
 });
 
 //making a short url out of a long one or "the actual url shortner"
-app.post("/url:originalUrl", async (req, res) => {
+// CORRECTED: Removed ":originalUrl" from the path.
+app.post("/url", async (req, res) => {
   const originalUrl = req.body.originalUrl;
 
   if (!originalUrl) {
@@ -75,6 +82,15 @@ app.post("/url:originalUrl", async (req, res) => {
   }
 
   try {
+    // Check if original URL already exists to prevent duplicates and unique constraint errors
+    let existingUrl = await URL.findOne({ originalUrl: originalUrl });
+    if (existingUrl) {
+      return res.status(200).json({ // Use 200 OK since it's not a new creation
+        message: "URL already shortened",
+        shortUrl: existingUrl.shortUrl
+      });
+    }
+
     const short = nanoid(8); 
 
     const newUrl = new URL({
@@ -88,7 +104,13 @@ app.post("/url:originalUrl", async (req, res) => {
 
     return res.status(201).json({ shortUrl: short });
   } catch (error) {
-    console.error("server error biatchhh", error);
+    // More robust error handling for duplicate shortUrl (highly unlikely with nanoid)
+    // or other database errors.
+    console.error("Error creating short URL:", error);
+    // Specifically check for duplicate key error if needed, but generic 500 is fine for now
+    if (error.code === 11000) { // MongoDB duplicate key error code
+        return res.status(409).json({ error: "A URL with this original or short URL already exists." });
+    }
     return res.status(500).send("Server error");
   }
 });
